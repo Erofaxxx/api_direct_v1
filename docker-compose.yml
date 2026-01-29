@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Основное приложение - оркестратор агентов
+  agent-orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yandex-direct-agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - agent-network
+    command: python -m orchestrator.main
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Планировщик задач
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yandex-direct-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATA_DIR=/app/data
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - agent-network
+    command: python -m deploy.scheduler
+    depends_on:
+      - agent-orchestrator
+
+  # Redis для кэширования и очередей (опционально)
+  redis:
+    image: redis:7-alpine
+    container_name: yandex-direct-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - agent-network
+    command: redis-server --appendonly yes
+
+  # PostgreSQL для хранения данных (опционально)
+  postgres:
+    image: postgres:15-alpine
+    container_name: yandex-direct-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=directbot
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme}
+      - POSTGRES_DB=yandex_direct
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U directbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  agent-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  postgres-data:

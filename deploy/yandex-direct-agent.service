@@ -1,0 +1,27 @@
+[Unit]
+Description=Yandex Direct Multi-Agent System
+After=network.target
+
+[Service]
+Type=simple
+User=directbot
+Group=directbot
+WorkingDirectory=/opt/yandex-direct-agent
+Environment="PATH=/opt/yandex-direct-agent/venv/bin"
+EnvironmentFile=/opt/yandex-direct-agent/.env
+ExecStart=/opt/yandex-direct-agent/venv/bin/python -m orchestrator.main
+Restart=always
+RestartSec=10
+
+# Логирование
+StandardOutput=append:/var/log/yandex-direct-agent/agent.log
+StandardError=append:/var/log/yandex-direct-agent/agent_error.log
+
+# Безопасность
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/yandex-direct-agent /var/log/yandex-direct-agent
+
+[Install]
+WantedBy=multi-user.target
