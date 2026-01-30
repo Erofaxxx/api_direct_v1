@@ -1,234 +1,133 @@
-# Мультиагентная система Яндекс Директ + ML
+# Мультиагентная система Яндекс Директ + ML Analytics
 
-Мультиагентная система для автоматизации работы с Яндекс Директом и ML-анализа рекламных данных.
+Полноценная мультиагентная система для анализа рекламных данных с AI (Claude Sonnet 4.5).
 
-## Архитектура
+## Возможности
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      ORCHESTRATOR                            │
-│                   (Координатор агентов)                      │
-└─────────────────────┬───────────────────┬───────────────────┘
-                      │                   │
-          ┌───────────▼───────┐ ┌─────────▼─────────┐
-          │  DirectAgent      │ │   MLAnalystAgent  │
-          │  (Яндекс Директ)  │ │   (Claude API)    │
-          └───────────────────┘ └───────────────────┘
-                      │                   │
-                      ▼                   ▼
-              ┌───────────────────────────────────────┐
-              │            SHARED DATA                 │
-              │         (Files / Database)             │
-              └───────────────────────────────────────┘
-```
-
-## Агенты
-
-### DirectAgent
-- Получение данных из API Яндекс Директа
-- Выгрузка статистики по кампаниям и ключевым фразам
-- Обновление ставок по рекомендациям ML агента
-
-### MLAnalystAgent
-- Анализ данных с помощью Claude Sonnet 4.5 (через OpenRouter)
-- Генерация рекомендаций по ставкам
-- Выявление аномалий и трендов
-- Слияние данных с CRM
+- **AI анализ данных** — Claude Sonnet 4.5 через OpenRouter
+- **Большие таблицы** — работа с таблицами любого размера (chunking)
+- **Текстовые данные** — классификация городов, категорий и других текстовых полей
+- **PDF отчёты** — профессиональные отчёты с графиками (LaTeX)
+- **REST API** — интеграция с любым фронтендом
+- **AI чат** — вопросы по данным в свободной форме
 
 ## Быстрый старт
 
-### 1. Клонирование и установка
+### Установка на Ubuntu
 
 ```bash
-git clone <repo-url>
-cd api_direct_v1
-
-# Создание виртуального окружения
-python3.11 -m venv venv
-source venv/bin/activate
-
-# Установка зависимостей
-pip install -r requirements.txt
-```
-
-### 2. Конфигурация
-
-```bash
-cp .env.example .env
-nano .env
-```
-
-Заполните:
-```env
-# Яндекс Директ
-YANDEX_DIRECT_TOKEN=ваш_токен
-
-# OpenRouter (Claude API)
-OPENROUTER_API_KEY=ваш_ключ_openrouter
-```
-
-### 3. Запуск
-
-```bash
-# Запуск ежедневного пайплайна
-python -m orchestrator.main
-
-# Запуск планировщика (работает в фоне)
-python -m deploy.scheduler
-```
-
-## Деплой на Ubuntu Server
-
-### Вариант 1: Скрипт установки
-
-```bash
-cd deploy
+git clone https://github.com/your-repo/api_direct_v1.git
+cd api_direct_v1/deploy
 chmod +x install.sh
 sudo ./install.sh
 ```
 
-### Вариант 2: Docker
+### Docker
 
 ```bash
-# Сборка и запуск
 docker-compose up -d
-
-# Просмотр логов
-docker-compose logs -f agent-orchestrator
 ```
 
-### Вариант 3: Systemd
+### Локальный запуск
 
 ```bash
-# Копирование сервиса
-sudo cp deploy/yandex-direct-agent.service /etc/systemd/system/
+python3.11 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+# Отредактируйте .env
 
-# Запуск
-sudo systemctl daemon-reload
-sudo systemctl enable yandex-direct-agent
-sudo systemctl start yandex-direct-agent
+# Запуск API
+uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 
-## Расписание задач
+## API Endpoints
 
-| Время | Задача | Описание |
-|-------|--------|----------|
-| 03:00 | daily_pipeline | Полная выгрузка + анализ |
-| 10:00 (пн-пт) | recommendations | Генерация рекомендаций |
-| 12:00 | anomaly_check | Проверка аномалий |
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| GET | `/api/status` | Статус системы |
+| POST | `/api/upload` | Загрузка файла |
+| POST | `/api/analyze` | Запуск анализа |
+| GET | `/api/task/{id}` | Статус задачи |
+| POST | `/api/chat` | Чат с AI |
+| POST | `/api/report` | Генерация PDF |
+| GET | `/api/report/{id}/download` | Скачать PDF |
+
+**Swagger документация:** http://your-server/docs
+
+## Интеграция с фронтендом (Lovable)
+
+Промпт для создания интерфейса: [`docs/LOVABLE_PROMPT.md`](docs/LOVABLE_PROMPT.md)
+
+```javascript
+// Пример использования API
+const response = await fetch('http://your-server/api/chat', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    message: 'Какие города показывают лучший ROI?',
+    data_id: 'uuid-загруженных-данных'
+  })
+});
+const { response: aiAnswer } = await response.json();
+```
+
+## Архитектура
+
+```
+┌─────────────────────────────────────────────────┐
+│              REST API (FastAPI)                  │
+└─────────────────────┬───────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────┐
+│                 ORCHESTRATOR                     │
+└─────────────────────┬───────────────────────────┘
+          ┌───────────┴───────────┐
+          ▼                       ▼
+┌─────────────────┐     ┌─────────────────┐
+│  DirectAgent    │     │  MLAnalystAgent │
+│ (Яндекс Директ) │     │  (Claude API)   │
+└─────────────────┘     └─────────────────┘
+```
 
 ## Структура проекта
 
 ```
 api_direct_v1/
-├── agents/                    # Агенты системы
-│   ├── base.py               # Базовый класс агента
-│   ├── direct_agent.py       # Агент Яндекс Директа
-│   └── ml_agent.py           # ML агент (Claude API)
-│
-├── orchestrator/              # Оркестратор
-│   └── main.py               # Координация агентов
-│
-├── yandex_direct_api/         # API клиент Яндекс Директа
-│   ├── client.py             # HTTP клиент
-│   ├── config.py             # Конфигурация
-│   ├── services/
-│   │   └── reports.py        # Reports API
-│   └── utils/
-│       ├── errors.py         # Обработка ошибок
-│       └── rate_limiter.py   # Rate limiting
-│
-├── deploy/                    # Деплой
-│   ├── install.sh            # Скрипт установки
-│   ├── scheduler.py          # Планировщик
-│   └── *.service             # Systemd сервисы
-│
-├── docs/                      # Документация
-│   ├── API_APPLICATION.md    # Для заявки на API
+├── api/                    # REST API (FastAPI)
+│   └── main.py
+├── agents/                 # Агенты
+│   ├── direct_agent.py     # Яндекс Директ
+│   └── ml_agent.py         # Claude AI
+├── ml_analysis/            # Анализ данных
+│   └── data_analyzer.py    # Большие таблицы, классификация
+├── reports/                # Генерация отчётов
+│   └── pdf_generator.py    # LaTeX → PDF
+├── orchestrator/           # Координатор
+├── deploy/                 # Деплой
+│   └── install.sh          # Установка Ubuntu
+├── docs/                   # Документация
+│   ├── FULL_DOCUMENTATION.md
+│   ├── LOVABLE_PROMPT.md
 │   └── YANDEX_APPLICATION_ANSWERS.txt
-│
-├── docker-compose.yml         # Docker конфигурация
-├── Dockerfile
-└── requirements.txt
+└── docker-compose.yml
 ```
 
-## API Endpoints
+## Настройка
 
-### Яндекс Директ (используемые методы)
-
-| Метод | Описание | Частота |
-|-------|----------|---------|
-| Campaigns.get | Список кампаний | 1 раз/сутки |
-| AdGroups.get | Группы объявлений | 1 раз/сутки |
-| Keywords.get | Ключевые фразы | 1 раз/сутки |
-| Bids.set | Установка ставок | По запросу |
-| Reports API | Статистика | 1 раз/сутки |
-
-### Claude API (через OpenRouter)
-
-- Модель: `anthropic/claude-sonnet-4`
-- Endpoint: `https://openrouter.ai/api/v1/chat/completions`
-
-## Примеры использования
-
-### Запуск анализа
-
-```python
-import asyncio
-from orchestrator.main import Orchestrator
-
-async def main():
-    orch = Orchestrator()
-    await orch.start()
-
-    # Полный пайплайн
-    results = await orch.run_daily_pipeline()
-
-    # Только анализ
-    analysis = await orch.run_analysis("general")
-
-    # Оптимизация ставок
-    bids = await orch.run_bid_optimization(auto_apply=False)
-
-    await orch.stop()
-
-asyncio.run(main())
+```env
+# .env
+YANDEX_DIRECT_TOKEN=your_token
+OPENROUTER_API_KEY=your_key
+CLAUDE_MODEL=anthropic/claude-sonnet-4
 ```
 
-### Работа с агентами напрямую
+## Документация
 
-```python
-from agents import DirectAgent, MLAnalystAgent
-
-# Яндекс Директ
-direct = DirectAgent(token="your_token")
-result = await direct.execute_task({"type": "full_export"})
-
-# ML анализ
-ml = MLAnalystAgent(api_key="your_openrouter_key")
-analysis = await ml.execute_task({"type": "analyze"})
-```
-
-## Получение API ключей
-
-### Яндекс Директ
-1. Зарегистрируйте приложение: https://oauth.yandex.ru/
-2. Получите токен через OAuth
-3. Подайте заявку на полный доступ к API
-
-### OpenRouter (Claude API)
-1. Зарегистрируйтесь: https://openrouter.ai/
-2. Создайте API ключ: https://openrouter.ai/keys
-3. Пополните баланс для использования Claude
-
-## Документация для заявки на API Яндекса
-
-Файл `docs/YANDEX_APPLICATION_ANSWERS.txt` содержит подробные ответы для заявки:
-- Названия методов API
-- Схема вызовов
-- Частота обращений
-- Обработка ошибок
-- Учёт ограничений
+- [Полная документация](docs/FULL_DOCUMENTATION.md)
+- [Промпт для Lovable](docs/LOVABLE_PROMPT.md)
+- [Заявка на API Яндекса](docs/YANDEX_APPLICATION_ANSWERS.txt)
+- [Swagger API](http://your-server/docs)
 
 ## Лицензия
 
